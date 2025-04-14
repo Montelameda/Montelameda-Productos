@@ -66,7 +66,7 @@ st.markdown('<div class="titulo">📦 Catálogo</div>', unsafe_allow_html=True)
 
 @st.cache_data
 def cargar_datos():
-    df = pd.read_excel("productos_base.xlsx", sheet_name="Productos")
+    df = pd.read_excel("../Excel/productos_base.xlsx", sheet_name="Productos")
     df = df[df["Mostrar en catálogo"] == "Sí"]
     df = df.sort_values("ID", ascending=False)
     return df
@@ -200,3 +200,52 @@ elif st.session_state.vista == "detalle":
             </a>
         </div>
     """, unsafe_allow_html=True)
+
+import subprocess
+import requests
+
+def descargar_imagenes(urls, carpeta_destino):
+    import os
+    from PIL import Image
+    import io
+
+    if not os.path.exists(carpeta_destino):
+        os.makedirs(carpeta_destino)
+    for i, url in enumerate(urls):
+        response = requests.get(url)
+        if response.status_code == 200:
+            imagen = Image.open(io.BytesIO(response.content))
+            nombre_archivo = os.path.join(carpeta_destino, f"pelota{i+1}.jpg")
+            imagen.save(nombre_archivo)
+
+def generar_json_y_publicar(producto):
+    import json
+    import os
+
+    # Guardar producto.json
+    json_path = os.path.join("..", "productojson", "producto.json")
+    data = {
+        "titulo": producto["Nombre del producto"],
+        "precio": str(producto["Precio Facebook"]),
+        "descripcion": producto["Descripción"],
+        "categoria": producto["Categoría"],
+        "estado": "Nuevo",
+        "ubicacion": "Ñuñoa",
+        "imagenes": [f"pelota{i+1}.jpg" for i in range(len(producto["Imágenes secundarias (URLs separadas por coma)"].split(",")))],
+        "etiquetas": producto["Etiquetas"].split(",")
+    }
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # Descargar imágenes
+    urls = [producto["Imagen principal (URL)"]] + producto["Imágenes secundarias (URLs separadas por coma)"].split(",")
+    carpeta_imagenes = os.path.join("..", "ImagenesTemporales")
+    descargar_imagenes(urls, carpeta_imagenes)
+
+    # Ejecutar el bot
+    subprocess.Popen(["C:\\Users\\Montenegro Shop\\Downloads\\MontelamedaSystem\\Bot\\lanzar_bot_sin_emoji.bat"], shell=True)
+
+# En el catálogo, debajo de cada vista detallada de producto, agrega:
+if st.button("📤 Publicar en Marketplace"):
+    generar_json_y_publicar(producto)
+    st.success("✅ Publicando producto en Facebook Marketplace...")

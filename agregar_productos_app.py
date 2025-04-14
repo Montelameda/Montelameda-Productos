@@ -38,7 +38,7 @@ body {
 st.markdown("<div class='container'>", unsafe_allow_html=True)
 
 # --- Variables globales y funciones ---
-archivo_excel = "productos_base.xlsx"
+archivo_excel = "../Excel/productos_base.xlsx"
 columnas_excel = [
     'ID', 'Código de barra', 'Código mínimo', 'Proveedor', 'Nombre del producto',
     'Categoría', 'Marca', 'Descripción', 'Estado', 'Imagen principal (URL)',
@@ -191,7 +191,9 @@ with tabs[1]:
          urls = [url.strip() for url in st.session_state.get("imagenes_secundarias").split(",") if url.strip() != ""]
          html_imgs = "".join([f'<img src="{url}" class="thumbnail">' for url in urls])
          st.markdown(html_imgs, unsafe_allow_html=True)
-         
+
+    st.text_input("Etiquetas", placeholder="Palabras clave separadas por coma", key="etiquetas", help="Ej: nuevo, oferta, top")
+     
 # TAB 3: Precios (Ahora con diseño en 3 columnas tipo tabla y emoticones)
 with tabs[2]:
     st.text_input("Precio compra *", placeholder="Costo del producto", key="precio_compra", help="Precio de compra del producto")
@@ -203,6 +205,7 @@ with tabs[2]:
         st.markdown("💰 **Facebook**")
         st.text_input("Precio", placeholder="Precio para Facebook", key="precio_facebook", help="Precio para venta en Facebook")
         st.text_input("Comisión", placeholder="Comisión", key="comision_fb", help="Comisión para Facebook")
+        st.text_input("Precio al por mayor de 3", placeholder="Precio al por mayor", key="precio_mayor", help="Precio para compras al por mayor")
 
         precio_fb_raw = st.session_state.get("precio_facebook", "")
         comision_fb_raw = st.session_state.get("comision_fb", "")
@@ -348,14 +351,12 @@ with tabs[2]:
     
     with tabs[3]:
         st.text_input("Stock", placeholder="Cantidad en stock", key="stock", help="Cantidad disponible en stock")
-        st.text_input("Precio al por mayor de 3", placeholder="Precio al por mayor", key="precio_mayor", help="Precio para compras al por mayor")
         st.selectbox("Mostrar en catálogo", options=["Sí", "No"], key="mostrar_catalogo", help="¿Se muestra en catálogo?")
         st.text_input("ID Publicación ML", placeholder="ID de la publicación", key="id_publicacion", help="Identificador en Mercado Libre")
         st.text_input("Link publicación 1", placeholder="https://...", key="link1", help="URL de la publicación 1")
         st.text_input("Link publicación 2", placeholder="https://...", key="link2")
         st.text_input("Link publicación 3", placeholder="https://...", key="link3")
         st.text_input("Link publicación 4", placeholder="https://...", key="link4", help="URL de la publicación 4")
-        st.text_input("Etiquetas", placeholder="Palabras clave separadas por coma", key="etiquetas", help="Ej: nuevo, oferta, top")
         st.text_input("Foto de proveedor", placeholder="URL de la foto", key="foto_proveedor", help="URL de una imagen del proveedor")
 
     

@@ -66,7 +66,7 @@ st.markdown('<div class="titulo">📦 Catálogo</div>', unsafe_allow_html=True)
 
 @st.cache_data
 def cargar_datos():
-    df = pd.read_excel("../Excel/productos_base.xlsx", sheet_name="Productos")
+    df = pd.read_excel("productos_base.xlsx", sheet_name="Productos")
     df = df[df["Mostrar en catálogo"] == "Sí"]
     df = df.sort_values("ID", ascending=False)
     return df

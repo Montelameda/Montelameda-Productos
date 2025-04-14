@@ -38,7 +38,7 @@ body {
 st.markdown("<div class='container'>", unsafe_allow_html=True)
 
 # --- Variables globales y funciones ---
-archivo_excel = "../Excel/productos_base.xlsx"
+archivo_excel = "productos_base.xlsx"
 columnas_excel = [
     'ID', 'Código de barra', 'Código mínimo', 'Proveedor', 'Nombre del producto',
     'Categoría', 'Marca', 'Descripción', 'Estado', 'Imagen principal (URL)',

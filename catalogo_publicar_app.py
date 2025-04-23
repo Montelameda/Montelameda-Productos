@@ -1,5 +1,8 @@
+import threading
+import time
+import winsound
+import subprocess
 import streamlit as st
-st.set_page_config(page_title="Catálogo", layout="wide")
 import streamlit.components.v1 as components
 import pandas as pd
 import requests
@@ -7,6 +10,7 @@ from zipfile import ZipFile
 from io import BytesIO
 import unicodedata
 
+st.set_page_config(page_title="Catálogo", layout="wide")
 st.markdown("""
 <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap' rel='stylesheet'>
 <style>
@@ -66,7 +70,7 @@ st.markdown('<div class="titulo">📦 Catálogo</div>', unsafe_allow_html=True)
 
 @st.cache_data
 def cargar_datos():
-    df = pd.read_excel("productos_base.xlsx", sheet_name="Productos")
+    df = pd.read_excel("../Excel/productos_base.xlsx", sheet_name="Productos")
     df = df[df["Mostrar en catálogo"] == "Sí"]
     df = df.sort_values("ID", ascending=False)
     return df
@@ -83,24 +87,27 @@ if st.session_state.vista == "catalogo":
     df = st.session_state.df
     categorias = df["Proveedor"].dropna().unique().tolist()
     categoria = st.selectbox("🌍 Filtrar por proveedor", ["Todos"] + categorias)
-
     if categoria != "Todos":
         df = df[df["Proveedor"] == categoria]
 
     busqueda = st.text_input("🔎 Buscar producto por nombre o ID").strip()
     if busqueda:
-        busqueda_normalizada = normalizar_texto(busqueda)
-        df = df[df["Nombre del producto"].apply(lambda x: busqueda_normalizada in normalizar_texto(str(x))) |
-                df["ID"].apply(lambda x: busqueda_normalizada in normalizar_texto(str(x)))]
+        bn = normalizar_texto(busqueda)
+        df = df[
+            df["Nombre del producto"].apply(lambda x: bn in normalizar_texto(str(x))) |
+            df["ID"].apply(lambda x: bn in normalizar_texto(str(x)))
+        ]
 
     st.caption(f"{len(df)} productos encontrados")
-
     cols = st.columns(4)
     for idx, row in df.iterrows():
         with cols[idx % 4]:
             st.markdown('<div class="producto-card">', unsafe_allow_html=True)
             st.image(row["Imagen principal (URL)"], use_container_width=True)
-            st.markdown(f"<div class='producto-nombre'>{row['ID']} - {row['Nombre del producto']}</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='producto-nombre'>{row['ID']} - {row['Nombre del producto']}</div>",
+                unsafe_allow_html=True
+            )
             if st.button("Ver detalles", key=f"ver_{row['ID']}"):
                 st.session_state.producto_seleccionado = row["ID"]
                 st.session_state.vista = "detalle"
@@ -113,24 +120,79 @@ elif st.session_state.vista == "detalle":
 
     st.markdown(f"## 🆔 {producto['ID']} - {producto['Nombre del producto']}")
 
+    perfiles_seleccionados = st.multiselect(
+        'Selecciona los perfiles para publicar:',
+        [str(i) for i in range(1, 10)],
+        default=[str(i) for i in range(1, 10)]
+    )
+
+    if st.button("📤 Publicar en Marketplace") and perfiles_seleccionados:
+        import json, os, requests, io
+        from PIL import Image
+
+        json_path = "C:/Users/Montenegro Shop/Downloads/MontelamedaSystem/montelameda_multipage/productojson/producto.json"
+        os.makedirs(os.path.dirname(json_path), exist_ok=True)
+        data = {
+            "titulo": producto["Nombre del producto"],
+            "precio": str(producto["Precio Facebook"]),
+            "descripcion": producto["Descripción"],
+            "categoria": producto["Categoría"],
+            "estado": "Nuevo",
+            "ubicacion": "Ñuñoa",
+            "imagenes": [
+                f"pelota{i+1}.jpg"
+                for i in range(len(str(producto["Imágenes secundarias (URLs separadas por coma)"]).split(",")))
+            ],
+            "etiquetas": producto["Etiquetas"].split(",")
+        }
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        urls = [producto["Imagen principal (URL)"]] + [
+            u.strip()
+            for u in str(producto["Imágenes secundarias (URLs separadas por coma)"]).split(",")
+            if u.strip()
+        ]
+        carpeta = "C:/Users/Montenegro Shop/Downloads/MontelamedaSystem/montelameda_multipage/ImagenesTemporales"
+        os.makedirs(carpeta, exist_ok=True)
+        for i, url in enumerate(urls):
+            try:
+                r = requests.get(url)
+                if r.status_code == 200:
+                    img = Image.open(io.BytesIO(r.content))
+                    img.save(os.path.join(carpeta, f"pelota{i+1}.jpg"))
+            except:
+                pass
+
+        for perfil in perfiles_seleccionados:
+            subprocess.run([
+                "python",
+                "C:/Users/Montenegro Shop/Downloads/MontelamedaSystem/montelameda_multipage/Bot/bot_publicador.py",
+                perfil
+            ], check=True)
+            time.sleep(3)
+
+        winsound.Beep(1000, 500)
+        st.success("✅ Publicación completada en los perfiles seleccionados.")
+
     def render_selectable_text(label, text, key):
         html_code = f"""
         <div style="margin-bottom: 25px;">
-            <p style="font-weight: 700; font-size: 1.1em;">{label}</p>
-            <textarea id="text_{key}" readonly 
+            <p style="font-weight:700; font-size:1.1em;">{label}</p>
+            <textarea id="text_{key}" readonly
                       style="width:100%; font-size:15px; padding:12px;
-                             border:none; border-radius:12px; background-color:#1f2937; 
+                             border:none; border-radius:12px; background-color:#1f2937;
                              color:#f9fafb; resize: vertical; box-sizing: border-box;
                              box-shadow: inset 0 0 0 1px #374151;">{text}</textarea>
             <div style="margin-top:10px;">
-                <button onclick="document.getElementById('text_{key}').select();" 
-                        style="background-color:#3b82f6; color:white; border:none; 
+                <button onclick="document.getElementById('text_{key}').select();"
+                        style="background-color:#3b82f6; color:white; border:none;
                                border-radius:10px; padding:10px 16px; font-weight:600;
                                font-size:14px; cursor:pointer; margin-right:10px;">
                     📋 Seleccionar Todo
                 </button>
-                <button id="copy-btn-{key}" 
-                        style="background-color:#3b82f6; color:white; border:none; 
+                <button id="copy-btn-{key}"
+                        style="background-color:#3b82f6; color:white; border:none;
                                border-radius:10px; padding:10px 16px; font-weight:600;
                                font-size:14px; cursor:pointer;">
                     📎 Copiar
@@ -168,9 +230,7 @@ elif st.session_state.vista == "detalle":
     urls = [producto["Imagen principal (URL)"]] + [
         u.strip() for u in str(producto["Imágenes secundarias (URLs separadas por coma)"]).split(",") if u.strip()
     ]
-    urls = [u for u in urls if u and not u == producto.get("Foto de proveedor", "")]
-
-    st.markdown("### 🖼️ Imágenes del producto")
+    urls = [u for u in urls if u and u != producto.get("Foto de proveedor", "")]
     img_cols = st.columns(3 if len(urls) >= 3 else len(urls))
     for idx, url in enumerate(urls):
         with img_cols[idx % len(img_cols)]:
@@ -185,67 +245,23 @@ elif st.session_state.vista == "detalle":
                     zip_file.writestr(f"imagen_{i+1}.jpg", img_data)
                 except:
                     continue
-        st.download_button("💾 Descargar ZIP", data=zip_buffer.getvalue(), file_name=f"{producto['ID']}_imagenes.zip", mime="application/zip")
+        st.download_button(
+            "💾 Descargar ZIP",
+            data=zip_buffer.getvalue(),
+            file_name=f"{producto['ID']}_imagenes.zip",
+            mime="application/zip"
+        )
 
     if st.button("⬅️ Volver al catálogo"):
         st.session_state.vista = "catalogo"
         st.toast("Volviste al catálogo 🚀")
 
     st.markdown("""
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;"
-               style="background-color:#3b82f6; color:white; padding:10px 20px; border-radius:10px;
-                      text-decoration: none; font-weight: bold; display: inline-block;">
-                ⬆️ Ir al inicio
-            </a>
-        </div>
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;"
+           style="background-color:#3b82f6; color:white; padding:10px 20px; border-radius:10px;
+                  text-decoration: none; font-weight: bold; display: inline-block;">
+            ⬆️ Ir al inicio
+        </a>
+    </div>
     """, unsafe_allow_html=True)
-
-import subprocess
-import requests
-
-def descargar_imagenes(urls, carpeta_destino):
-    import os
-    from PIL import Image
-    import io
-
-    if not os.path.exists(carpeta_destino):
-        os.makedirs(carpeta_destino)
-    for i, url in enumerate(urls):
-        response = requests.get(url)
-        if response.status_code == 200:
-            imagen = Image.open(io.BytesIO(response.content))
-            nombre_archivo = os.path.join(carpeta_destino, f"pelota{i+1}.jpg")
-            imagen.save(nombre_archivo)
-
-def generar_json_y_publicar(producto):
-    import json
-    import os
-
-    # Guardar producto.json
-    json_path = os.path.join("..", "productojson", "producto.json")
-    data = {
-        "titulo": producto["Nombre del producto"],
-        "precio": str(producto["Precio Facebook"]),
-        "descripcion": producto["Descripción"],
-        "categoria": producto["Categoría"],
-        "estado": "Nuevo",
-        "ubicacion": "Ñuñoa",
-        "imagenes": [f"pelota{i+1}.jpg" for i in range(len(producto["Imágenes secundarias (URLs separadas por coma)"].split(",")))],
-        "etiquetas": producto["Etiquetas"].split(",")
-    }
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # Descargar imágenes
-    urls = [producto["Imagen principal (URL)"]] + producto["Imágenes secundarias (URLs separadas por coma)"].split(",")
-    carpeta_imagenes = os.path.join("..", "ImagenesTemporales")
-    descargar_imagenes(urls, carpeta_imagenes)
-
-    # Ejecutar el bot
-    subprocess.Popen(["C:\\Users\\Montenegro Shop\\Downloads\\MontelamedaSystem\\Bot\\lanzar_bot_sin_emoji.bat"], shell=True)
-
-# En el catálogo, debajo de cada vista detallada de producto, agrega:
-if st.button("📤 Publicar en Marketplace"):
-    generar_json_y_publicar(producto)
-    st.success("✅ Publicando producto en Facebook Marketplace...")

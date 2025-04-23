@@ -161,6 +161,7 @@ elif st.session_state.vista == "detalle":
         st.markdown(f"**Facebook:** {producto['Precio Facebook']} CLP")
         st.markdown(f"**Comisión FB:** {producto['Comisión vendedor Facebook']} CLP")
     with col2:
+        st.markdown(f"**Mayor:** {producto['Precio al por mayor de 3 ']} CLP")
         st.markdown(f"**Proveedor:** {producto['Proveedor']}")
 
     urls = [producto["Imagen principal (URL)"]] + [
